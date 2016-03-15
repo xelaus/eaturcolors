@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<title>Eat Your Colors</title>
+	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.0b2/jquery.mobile-1.0b2.min.css" />
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>  
+<!-- Make the top and bottom colors look stretchy -->
+<div class="extend top"></div>
+<div class="extend bottom"></div>
+    <div id="fb-root"></div>
+
+<!-- The Actions -->
+<div class="actions">
+    <i class="fa fa-search" id="search"></i>
+    <input type="search" placeholder="Search">
+    <i class="fa fa-camera" id="camera" ontouchstart="$('input[type=file]').click()"></i>
+    <form action="upload" method="post" enctype="multipart/form-data" id="myform">
+        <input type="file" name="file">
+    </form>
+    <i class="fa fa-tasks" id="stats"></i>
+    <i class="fa fa-share" id="share"></i>
+    <i class="fa fa-sign-out" id="sign-out"></i>
+</div>
+<div class="overlay"></div>
+
+<!-- The Streak -->
+<div class="modal show" id="streak">
+    <i class="fa fa-times exit"></i>
+    <h1>Streaks</h1>
+    <p id="streak-info">You've eaten all your colors for {{ count }} days!</p>
+    <p>Share this with your friends!</p>
+    <i class="fa fa-facebook social" id="fb_share_buttonindex"></i>
+    <a class="fa fa-twitter social"  style="text-decoration:none" href="#" onclick='window.open("https://twitter.com/intent/tweet?text=I have eaten every color for {{ count }} days!");return false;'></a>
+</div>
+
+<!-- The Colours -->
+<div class="colors">
+    <div class="color {{ eaten['red'] }}" id="red"></div>
+    <div class="color {{ eaten['orange'] }}" id="orange"></div>
+    <div class="color {{ eaten['yellow'] }}" id="yellow"></div>
+    <div class="color {{ eaten['green'] }}" id="green"></div>
+    <div class="color {{ eaten['blue'] }}" id="blue"></div>
+    <div class="color {{ eaten['purple'] }}" id="purple"></div>
+    <div class="color {{ eaten['white'] }}" id="white"></div>
+</div>
+
+<!-- Nutrition Modal -->
+<div class="modal" id="nutrition">
+    <i class="fa fa-times exit"></i>
+    <h1 id="query"></h1>
+    <p>
+        <b>Serving size</b> <span id="nf_serving_weight_grams"></span>g <br>
+        <b>Calories</b> <span id="nf_calories"></span> kcal <br>
+        <b>Carbohydrates</b> <span id="nf_total_carbohydrate"></span>g <br>
+        <b>Fat</b> <span id="nf_total_fat"></span>g <br>
+        <b>Protein</b> <span id="nf_protein"></span>g <br>
+        <b>Sugar</b> <span id="nf_sugars"></span>g
+    </p>
+</div>
+
+<!-- History Modal -->
+<div class="modal" id="history">
+    <i class="fa fa-times exit"></i>
+    <h1 id="greeting">Howdy!</h1>
+    <p>Great work this week! <br><br>
+        <span id="Monday-parent">On <b>Monday</b> you ate <span id="Monday"></span> <br></span>
+        <span id="Tuesday-parent">On <b>Tuesday</b> you ate <span id="Tuesday"></span><br></span>
+        <span id="Wednesday-parent">On <b>Wednesday</b> you ate <span id="Wednesday"></span><br></span>
+        <span id="Thursday-parent">On <b>Thursday</b> you ate <span id="Thursday"></span><br></span>
+        <span id="Friday-parent">On <b>Friday</b> you ate <span id="Friday"></span><br></span>
+        <span id="Saturday-parent">On <b>Saturday</b> you ate <span id="Saturday"></span><br></span>
+        <span id="Sunday-parent">On <b>Sunday</b> you ate <span id="Sunday"></span><br></span>
+    </p>
+    <i class="fa fa-facebook social" id = fb_share_buttonstats ></i>
+     <a class="fa fa-twitter social"  style="text-decoration:none" href="#" onclick='window.open("https://twitter.com/intent/tweet?text=I have been eating colorful for 7 days!");return false;'></a>
+</div>
+
+<!-- Share Modal -->
+<div class="modal" id="share-modal">
+    <i class="fa fa-times exit"></i>
+    <h1>Share</h1>
+    <p id="progress"></p>
+    <i class="fa fa-facebook social" id = fb_share_buttonshare></i>
+      <a class="fa fa-twitter social"  style="text-decoration:none" href="#" onclick='window.open("https://twitter.com/intent/tweet?text= I am trying to eat colorful today!");return false;'></a>
+</div>
+
+<script src="http://code.jquery.com/jquery-1.12.0.min.js"></script>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/jquery-easing/1.3/jquery.easing.min.js"></script>
+<script src="https://cdn.rawgit.com/ftlabs/fastclick/master/lib/fastclick.js"></script>
+<script>
+    var num = 0;
+    $(function() {
+        FastClick.attach(document.body);
+        
+        /**
+         * Prevent links clicked in the mobile app from opening in safari.
+         *
+         */
+        $('a').on('click', function() { 
+            window.location = $(this).attr('href');
+            return false;
+        });
+        
+        $('#search').on('click', function() {
+            $('.actions').addClass('searching');
+            $('input[type=search]').focus();
+        });
+        
+        $('input[type=search]').on('blur', function() {
+            $('.actions').removeClass('searching');
+            // INSERT GET METHOD HERE TO DO FANCY THINGS WITH NUTRITION
+            var query = $(this).val();
+            if (query != "") {
+                $('#nutrition').addClass('show');
+                $('#query').html(query);
+
+                $.get('nutrition', {myndata: query}, function(data){
+                    $("#nf_serving_weight_grams").html(JSON.parse(data)["nf_serving_weight_grams"]);
+                    $("#nf_calories").html(JSON.parse(data)["nf_calories"]);
+                    $("#nf_total_carbohydrate").html(JSON.parse(data)["nf_total_carbohydrate"]);
+                    $("#nf_total_fat").html(JSON.parse(data)["nf_total_fat"]);
+                    $("#nf_protein").html(JSON.parse(data)["nf_protein"]);
+                    $("#nf_sugars").html(JSON.parse(data)["nf_sugars"]);
+                });
+            }
+        });
+        
+        $('#camera').on('touchend', function(e) {
+            $('input[type=file]').click();
+        });
+        $('input[type=file]').on('change', function() {
+            $('#camera').removeClass('fa-camera').addClass('fa-paper-plane');
+	    $('#camera').off('touchend').off('click');
+	    $('#myform').submit();
+        });
+	$('input[type=file]').on('blur', function() {
+            $('#camera').removeClass('fa-camera').addClass('fa-paper-plane');
+            $('#camera').off('touchend').off('click');
+            $('#myform').submit();
+        });
+        $('#camera').on('click', function(e) {
+            $('input[type=file]').click();
+            // submit the form?
+        });
+        
+        $('#stats').on('click', function() {
+            $.get('history', function(data) {
+                console.log(data);
+                jobj = JSON.parse(data)["2"];
+                console.log(jobj);
+                dates = Object.keys(jobj);
+                dow = {};
+                var weekday = new Array(7);
+                    weekday[0]=  "Sunday";
+                    weekday[1] = "Monday";
+                    weekday[2] = "Tuesday";
+                    weekday[3] = "Wednesday";
+                    weekday[4] = "Thursday";
+                    weekday[5] = "Friday";
+                    weekday[6] = "Saturday";
+                for (var x in dates) {
+                    xarr = dates[x].split("-");
+                    console.log(xarr);
+                    date = new Date(xarr[0] + ',' + xarr[1] + ',' + xarr[2]);
+                    console.log(date);
+                    var n = weekday[date.getUTCDay()];
+                    console.log(n);
+                    dow[n] = jobj[dates[x]]
+                }
+                
+                for (var i in weekday) {
+                    console.log(dow[weekday[i]]);
+                    if (dow[weekday[i]] != undefined) {
+                        var daystr = "";
+                        for (var j in dow[weekday[i]]) {
+                            if (j == dow[weekday[i]].length - 1 && dow[weekday[i]].length > 1) {
+                                daystr = daystr + "and " + dow[weekday[i]][j];
+                            } else if (dow[weekday[i]].length == 1){
+                                daystr = daystr + dow[weekday[i]][j];
+                            } else {
+                                daystr = daystr + dow[weekday[i]][j] + ", ";
+                            }
+                        }
+                        $('#' + weekday[i]).html(daystr);
+                    } else {                        
+                        $('#' + weekday[i] + '-parent').addClass('hidden');
+                    }
+                }
+                
+                $('#history').addClass('show');
+                
+            });
+        });
+       
+
+
+
+
+
+ $('#sign-out').on('click', function() {
+	$.get('logout', function(data){
+		window.location = '/login';
+        });
+});        
+
+
+
+
+        $('#share').on('click', function() {
+            // $.get stuff
+            
+	    $.get('share', function(data){
+		
+		num = data;
+	$('#share-modal').addClass('show');
+            if (num == 1){
+            $('#progress').html("You've eaten " + num.toString() + " color today!");
+            }
+            else {
+                $('#progress').html("You've eaten " + num.toString() + " colors today!");
+            }
+            //console.log(num);
+		});
+			
+
+        });
+        
+        
+        $('.color').on('click', function(e) {
+            $this = $(this);
+            
+            
+            if (!($this.hasClass('eaten'))) {
+                $.get('insertcolor', {myfdata: $this.attr('id')});
+                
+                var color = $(this).attr('id'),
+                    x = e.pageX,
+                    y = e.pageY,
+                    clickY = y - $(this).offset().top,
+                	clickX = x - $(this).offset().left,
+                    box = this;
+                    setX = parseInt(clickX),
+                    setY = parseInt(clickY);
+                
+                $this.find("svg").remove();
+                $this.append('<svg class="'+color+'"><circle cx="'+setX+'" cy="'+setY+'" r="'+0+'"></circle></svg>');
+
+                var c = $(box).find("circle");
+                c.animate({"r": $(box).outerWidth()}, {
+                    easing: "easeOutQuad",
+                    duration: 400,
+                    step : function(val){
+                        c.attr("r", val);
+                        },
+                    complete: function() {
+                        $this.addClass('eaten').find("svg").remove();
+                        }
+                    }
+                );
+            } else {
+                $.get('deletex', {myxdata: $this.attr('id')});
+                
+                var color = $(this).attr('id'),
+                    x = e.pageX,
+                    y = e.pageY,
+                    clickY = y - $(this).offset().top,
+                	clickX = x - $(this).offset().left,
+                    box = this;
+                    setX = parseInt(clickX),
+                    setY = parseInt(clickY);
+                
+                $this.find("svg").remove();
+                $this.append('<svg class="'+color+'"><circle cx="'+setX+'" cy="'+setY+'" r="'+$(box).outerWidth()+'"></circle></svg>');
+
+                var c = $(box).find("circle");
+                $this.removeClass('eaten');
+                c.animate({"r": 0}, {
+                    easing: "easeOutQuad",
+                    duration: 200,
+                    step : function(val){
+                        c.attr("r", val);
+                        },
+                    complete: function() {
+                        $this.find("svg").remove();
+                        }
+                    }
+                );
+            }
+        });
+        
+        
+        $('.modal .exit').on('click', function() {
+            $(this).parent().removeClass('show');
+        });
+    });
+    
+ 
+window.fbAsyncInit = function() {
+FB.init({appId: '1774524406112119', status: true, cookie: true,
+xfbml: true});
+};
+(function() {
+var e = document.createElement('script'); e.async = true;
+e.src = document.location.protocol +
+'//connect.facebook.net/en_US/all.js';
+document.getElementById('fb-root').appendChild(e);
+}());
+    
+    
+$(document).ready(function(){
+$('#fb_share_buttonindex').click(function(e){
+e.preventDefault();
+FB.ui(
+{
+method: 'feed',
+name: 'Hey you have a {{ count }} streak! Share this with your friends.',
+link: 'http://www.eaturcolors.com/',
+caption: 'Eat Your Colors!',
+description: 'Congratulations!' ,
+message: ''
+});
+});
+
+$('#fb_share_buttonshare').click(function(e){
+e.preventDefault();
+    console.log(num);
+if (num == 1) {
+FB.ui(
+{
+method: 'feed',
+name: 'Hey you have eaten '+ num + ' color today! Share this with your friends.',
+link: 'http://www.eaturcolors.com/',
+caption: 'Eat Your Colors!',
+description: 'Congratulations!' ,
+message: ''
+});
+}
+else {
+    FB.ui(
+{
+method: 'feed',
+name: 'Hey you have eaten '+ num + ' colors today! Share this with your friends.',
+link: 'http://www.eaturcolors.com/',
+caption: 'Eat Your Colors!',
+description: 'Congratulations!' ,
+message: ''
+});
+}
+num = 0;
+})
+
+}); 
+$('#fb_share_buttonstats').click(function(e){
+e.preventDefault();
+FB.ui(
+{
+method: 'feed',
+name: 'Hey you have been eating colorful for 7 days! Share this with your friends.',
+link: 'http://www.eaturcolors.com/',
+caption: 'Eat Your Colors!',
+description: 'Congratulations!' ,
+message: ''
+});
+})
+    
+</script>
+</body>
+</html>
