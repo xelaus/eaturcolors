@@ -255,12 +255,8 @@ def uploaded_file(filename):
     path = 'uploads/' + str(filename)
     piclink = client.upload_from_path(path, config=None, anon=True)
     piclinkx = piclink['link']
-    #print piclinkx
     
     clarifai_api = ClarifaiApi()  # assumes environment variables are set.
-        #result = clarifai_api.tag_image_urls('https://api.clarifai.com/v1/color/?url=https://samples.clarifai.com/metro-north.jpg')
-        
-        #print json.dumps(result)
         
     storage = StringIO()
     github_url = 'https://api.clarifai.com/v1/color'
@@ -272,12 +268,9 @@ def uploaded_file(filename):
     data = "url=" + str(piclinkx)
     c.setopt(pycurl.POSTFIELDS, data)
     c.setopt(c.WRITEFUNCTION, storage.write)
-    #c.setopt(pycurl.WRITEDATA, buffer)
-    #c.setopt(pycurl.WRITEFUNCTION, data.write)
     c.perform()
     content = storage.getvalue()
     a = eval(content)
-    print a
     colname = a['results'][0]['colors'][0]['w3c']['name']
     
     colname = colname.lower()
@@ -300,7 +293,12 @@ def uploaded_file(filename):
     else:
         color = "FALSE"
         
+    
+        
     print color
+    
+    if color == "FALSE":
+        return redirect(url_for('index'))
     
     if 'username' in session:
         userx = session['username']
@@ -314,18 +312,6 @@ def uploaded_file(filename):
         else:
             return "False"
 
-    
-    #print type(mystdout)
-    #print mystdout
-    
-   
-    
-    
-    #print data
-    #dictionary = json.loads(c.getvalue())
-    #pprint.pprint(dictionary["colors"])
-    #print c
-    #print json.dumps(c['colors'][0]['w3c']['hex'])
     
     
                                                    
